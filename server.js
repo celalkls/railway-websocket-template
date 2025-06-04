@@ -70,6 +70,31 @@ wss.on('connection', function connection(ws, req) {
             ws.send(JSON.stringify({ Type: "add_user_response", Success: false, Error: "Yetkisiz" }));
     }
     return;
+            if (msg.Type === "list_users" && msg.AdminKey === "key_celal_admin_ekle") {
+    ws.send(JSON.stringify({
+        Type: "list_users_response",
+        Users: users // [{userName, password}, ...]
+    }));
+    return;
+}
+            if (msg.Type === "delete_user" && msg.AdminKey === "key_celal_admin_ekle") {
+    users = users.filter(u => u.userName !== msg.UserName);
+    ws.send(JSON.stringify({
+        Type: "delete_user_response",
+        Success: true
+    }));
+    return;
+}
+            if (msg.Type === "change_password" && msg.UserName && msg.OldPassword && msg.NewPassword) {
+    const user = users.find(u => u.userName === msg.UserName && u.password === msg.OldPassword);
+    if (user) {
+        user.password = msg.NewPassword;
+        ws.send(JSON.stringify({ Type: "change_password_response", Success: true }));
+    } else {
+        ws.send(JSON.stringify({ Type: "change_password_response", Success: false, Error: "Eski şifre yanlış" }));
+    }
+    return;
+}
 }
         // Kullanıcı adı ve şifre doğrulama (giriş)
 if (msg.Type === "auth_request") {
