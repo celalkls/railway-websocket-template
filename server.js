@@ -96,15 +96,15 @@ wss.on('connection', function connection(ws, req) {
 
         // Şifre değiştir (kendi şifresi)
         if (msg.Type === "change_password" && msg.UserName && msg.OldPassword && msg.NewPassword) {
-            const user = users.find(u => u.userName === msg.UserName && u.password === msg.OldPassword);
-            if (user) {
-                user.password = msg.NewPassword;
-                ws.send(JSON.stringify({ Type: "change_password_response", Success: true }));
-            } else {
-                ws.send(JSON.stringify({ Type: "change_password_response", Success: false, Error: "Eski şifre yanlış" }));
-            }
-            return;
-        }
+    const user = users.find(u => u.userName.toLowerCase() === msg.UserName.toLowerCase() && u.password === msg.OldPassword);
+    if (user) {
+        user.password = msg.NewPassword;
+        ws.send(JSON.stringify({ Type: "change_password_response", Success: true }));
+    } else {
+        ws.send(JSON.stringify({ Type: "change_password_response", Success: false, Error: "Eski şifre yanlış veya kullanıcı adı hatalı" }));
+    }
+    return;
+}
 
         // Kullanıcı adı ve şifre doğrulama (giriş)
         if (msg.Type === "auth_request") {
