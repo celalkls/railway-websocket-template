@@ -4,7 +4,10 @@ const PORT = process.env.PORT || 8080;
 const wss = new WebSocket.Server({ port: PORT });
 
 let clients = []; // { ws, userName, ipAddress, port, localIp }
-
+let users = [
+    { userName: "admin", password: "kalkanpanel" },
+    { userName: "celal", password: "Ck100622" }
+];
 function broadcastUserList() {
     const userList = clients.map(c => ({
         UserName: c.userName,
@@ -58,6 +61,25 @@ wss.on('connection', function connection(ws, req) {
             sendUserListTo(ws);
             return;
             }
+        if (msg.Type === "add_user" && msg.UserName && msg.Password) {
+        // Sadece admin ekleyebilsin
+            if (msg.AdminKey === "key_celal_admin_ekle") {
+            users.push({ userName: msg.UserName, password: msg.Password });
+            ws.send(JSON.stringify({ Type: "add_user_response", Success: true }));
+            } else {
+            ws.send(JSON.stringify({ Type: "add_user_response", Success: false, Error: "Yetkisiz" }));
+    }
+    return;
+}
+        // Kullanıcı adı ve şifre doğrulama (giriş)
+if (msg.Type === "auth_request") {
+    const isValid = users.some(u => u.userName === msg.UserName && u.password === msg.Password);
+    ws.send(JSON.stringify({
+        Type: "auth_response",
+        Success: isValid
+    }));
+    return;
+}
         // Kullanıcı girişini işle
         if (msg.Type === "user_join") {
             let userInfo = {};
