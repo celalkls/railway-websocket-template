@@ -19,6 +19,22 @@ function broadcastUserList() {
     const data = JSON.stringify(msg);
     clients.forEach(c => c.ws.readyState === WebSocket.OPEN && c.ws.send(data));
 }
+function sendUserListTo(targetWs) {
+    const userList = clients.map(c => ({
+        UserName: c.userName,
+        IpAddress: c.ipAddress,
+        Port: c.port,
+        LocalIp: c.localIp
+    }));
+    const msg = {
+        Type: "user_list",
+        Content: JSON.stringify(userList)
+    };
+    const data = JSON.stringify(msg);
+    if (targetWs && targetWs.readyState === WebSocket.OPEN) {
+        targetWs.send(data);
+    }
+}
 
 function sendToUser(userName, msgObj) {
     const target = clients.find(c => c.userName === userName);
@@ -37,7 +53,11 @@ wss.on('connection', function connection(ws, req) {
         } catch (e) {
             return;
         }
-
+        // Kullanıcı listesi isteği (sadece istekte bulunan ws'ye gönder)
+        if (msg.Type === "user_list_request") {
+            sendUserListTo(ws);
+            return;
+            }
         // Kullanıcı girişini işle
         if (msg.Type === "user_join") {
             let userInfo = {};
