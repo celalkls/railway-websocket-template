@@ -8,6 +8,7 @@ let users = [
     { userName: "admin", password: "kalkanpanel" },
     { userName: "celal", password: "Ck100622" }
 ];
+
 function broadcastUserList() {
     const userList = clients.map(c => ({
         UserName: c.userName,
@@ -56,55 +57,65 @@ wss.on('connection', function connection(ws, req) {
         } catch (e) {
             return;
         }
-        // Kullanıcı listesi isteği (sadece istekte bulunan ws'ye gönder)
+
+        // Kullanıcı listesi isteği
         if (msg.Type === "user_list_request") {
             sendUserListTo(ws);
             return;
-            }
+        }
+
+        // Kullanıcı ekle (sadece admin)
         if (msg.Type === "add_user" && msg.UserName && msg.Password) {
-        // Sadece admin ekleyebilsin
             if (msg.AdminKey === "key_celal_admin_ekle") {
-            users.push({ userName: msg.UserName, password: msg.Password });
-            ws.send(JSON.stringify({ Type: "add_user_response", Success: true }));
+                users.push({ userName: msg.UserName, password: msg.Password });
+                ws.send(JSON.stringify({ Type: "add_user_response", Success: true }));
             } else {
-            ws.send(JSON.stringify({ Type: "add_user_response", Success: false, Error: "Yetkisiz" }));
-    }
-    return;
-            if (msg.Type === "list_users" && msg.AdminKey === "key_celal_admin_ekle") {
-    ws.send(JSON.stringify({
-        Type: "list_users_response",
-        Users: users // [{userName, password}, ...]
-    }));
-    return;
-}
-            if (msg.Type === "delete_user" && msg.AdminKey === "key_celal_admin_ekle") {
-    users = users.filter(u => u.userName !== msg.UserName);
-    ws.send(JSON.stringify({
-        Type: "delete_user_response",
-        Success: true
-    }));
-    return;
-}
-            if (msg.Type === "change_password" && msg.UserName && msg.OldPassword && msg.NewPassword) {
-    const user = users.find(u => u.userName === msg.UserName && u.password === msg.OldPassword);
-    if (user) {
-        user.password = msg.NewPassword;
-        ws.send(JSON.stringify({ Type: "change_password_response", Success: true }));
-    } else {
-        ws.send(JSON.stringify({ Type: "change_password_response", Success: false, Error: "Eski şifre yanlış" }));
-    }
-    return;
-}
-}
+                ws.send(JSON.stringify({ Type: "add_user_response", Success: false, Error: "Yetkisiz" }));
+            }
+            return;
+        }
+
+        // Kullanıcıları listele (sadece admin)
+        if (msg.Type === "list_users" && msg.AdminKey === "key_celal_admin_ekle") {
+            ws.send(JSON.stringify({
+                Type: "list_users_response",
+                Users: users // [{userName, password}, ...]
+            }));
+            return;
+        }
+
+        // Kullanıcı sil (sadece admin)
+        if (msg.Type === "delete_user" && msg.AdminKey === "key_celal_admin_ekle") {
+            users = users.filter(u => u.userName !== msg.UserName);
+            ws.send(JSON.stringify({
+                Type: "delete_user_response",
+                Success: true
+            }));
+            return;
+        }
+
+        // Şifre değiştir (kendi şifresi)
+        if (msg.Type === "change_password" && msg.UserName && msg.OldPassword && msg.NewPassword) {
+            const user = users.find(u => u.userName === msg.UserName && u.password === msg.OldPassword);
+            if (user) {
+                user.password = msg.NewPassword;
+                ws.send(JSON.stringify({ Type: "change_password_response", Success: true }));
+            } else {
+                ws.send(JSON.stringify({ Type: "change_password_response", Success: false, Error: "Eski şifre yanlış" }));
+            }
+            return;
+        }
+
         // Kullanıcı adı ve şifre doğrulama (giriş)
-if (msg.Type === "auth_request") {
-    const isValid = users.some(u => u.userName === msg.UserName && u.password === msg.Password);
-    ws.send(JSON.stringify({
-        Type: "auth_response",
-        Success: isValid
-    }));
-    return;
-}
+        if (msg.Type === "auth_request") {
+            const isValid = users.some(u => u.userName === msg.UserName && u.password === msg.Password);
+            ws.send(JSON.stringify({
+                Type: "auth_response",
+                Success: isValid
+            }));
+            return;
+        }
+
         // Kullanıcı girişini işle
         if (msg.Type === "user_join") {
             let userInfo = {};
@@ -145,7 +156,6 @@ if (msg.Type === "auth_request") {
         // Özel mesaj (private_chat)
         if (msg.Type === "private_chat" && msg.Receiver) {
             sendToUser(msg.Receiver, msg);
-            // Gönderenin de ekranında görünsün
             if (msg.Sender && msg.Sender !== msg.Receiver) {
                 sendToUser(msg.Sender, msg);
             }
