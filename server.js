@@ -152,7 +152,11 @@ wss.on('connection', function connection(ws, req) {
             clients.forEach(c => c.ws.readyState === WebSocket.OPEN && c.ws.send(message));
             return;
         }
-
+        // Sesli arama (voice) mesajları
+if (msg.Type === "voice" && msg.Receiver) {
+    sendToUser(msg.Receiver, msg);
+    return;
+}
         // Özel mesaj (private_chat)
         if (msg.Type === "private_chat" && msg.Receiver) {
             sendToUser(msg.Receiver, msg);
