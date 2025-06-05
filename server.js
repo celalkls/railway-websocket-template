@@ -96,15 +96,15 @@ wss.on('connection', function connection(ws, req) {
 
         // Şifre değiştir (kendi şifresi)
         if (msg.Type === "change_password" && msg.UserName && msg.OldPassword && msg.NewPassword) {
-    const user = users.find(u => u.userName.toLowerCase() === msg.UserName.toLowerCase() && u.password === msg.OldPassword);
-    if (user) {
-        user.password = msg.NewPassword;
-        ws.send(JSON.stringify({ Type: "change_password_response", Success: true }));
-    } else {
-        ws.send(JSON.stringify({ Type: "change_password_response", Success: false, Error: "Eski şifre yanlış veya kullanıcı adı hatalı" }));
-    }
-    return;
-}
+            const user = users.find(u => u.userName.toLowerCase() === msg.UserName.toLowerCase() && u.password === msg.OldPassword);
+            if (user) {
+                user.password = msg.NewPassword;
+                ws.send(JSON.stringify({ Type: "change_password_response", Success: true }));
+            } else {
+                ws.send(JSON.stringify({ Type: "change_password_response", Success: false, Error: "Eski şifre yanlış veya kullanıcı adı hatalı" }));
+            }
+            return;
+        }
 
         // Kullanıcı adı ve şifre doğrulama (giriş)
         if (msg.Type === "auth_request") {
@@ -122,6 +122,8 @@ wss.on('connection', function connection(ws, req) {
             try {
                 userInfo = JSON.parse(msg.Content);
             } catch {}
+            // Aynı kullanıcı adıyla eski bağlantıyı sil
+            clients = clients.filter(c => c.userName !== (userInfo.UserName || msg.Sender));
             currentUser = {
                 ws,
                 userName: userInfo.UserName || msg.Sender,
@@ -152,11 +154,13 @@ wss.on('connection', function connection(ws, req) {
             clients.forEach(c => c.ws.readyState === WebSocket.OPEN && c.ws.send(message));
             return;
         }
+
         // Sesli arama (voice) mesajları
-if (msg.Type === "voice" && msg.Receiver) {
-    sendToUser(msg.Receiver, msg);
-    return;
-}
+        if (msg.Type === "voice" && msg.Receiver) {
+            sendToUser(msg.Receiver, msg);
+            return;
+        }
+
         // Özel mesaj (private_chat)
         if (msg.Type === "private_chat" && msg.Receiver) {
             sendToUser(msg.Receiver, msg);
@@ -174,11 +178,11 @@ if (msg.Type === "voice" && msg.Receiver) {
         }
 
         // Çağrı ve cevapları + çağrı sonlandırma
-if (msg.Type === "call" || msg.Type === "call_response" || msg.Type === "call_end") {
-    if (msg.Receiver) sendToUser(msg.Receiver, msg);
-    if ((msg.Type === "call_response" || msg.Type === "call_end") && msg.Sender) sendToUser(msg.Sender, msg);
-    return;
-}
+        if (msg.Type === "call" || msg.Type === "call_response" || msg.Type === "call_end") {
+            if (msg.Receiver) sendToUser(msg.Receiver, msg);
+            if ((msg.Type === "call_response" || msg.Type === "call_end") && msg.Sender) sendToUser(msg.Sender, msg);
+            return;
+        }
     });
 
     ws.on('close', function () {
