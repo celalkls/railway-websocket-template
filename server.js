@@ -1,36 +1,25 @@
-const WebSocket = require('ws');
+const WebSocket = require("ws");
+const wss = new WebSocket.Server({ port: 8080 });
 
-const PORT = process.env.PORT || 8080;
-const wss = new WebSocket.Server({ port: PORT });
+let users = [];
 
-let clients = []; // { ws, userName, ipAddress, port, localIp }
-
-function broadcastUserList() {
-    const userList = clients.map(c => ({
-        UserName: c.userName,
-        IpAddress: c.ipAddress,
-        Port: c.port,
-        LocalIp: c.localIp
-    }));
-    const msg = {
-        Type: "user_list",
-        Content: JSON.stringify(userList)
-    };
-    const data = JSON.stringify(msg);
-    clients.forEach(c => c.ws.readyState === WebSocket.OPEN && c.ws.send(data));
-}
-
-function sendToUser(userName, msgObj) {
-    const target = clients.find(c => c.userName === userName);
-    if (target && target.ws.readyState === WebSocket.OPEN) {
-        target.ws.send(JSON.stringify(msgObj));
+function sendToUser(userName, msg) {
+    const user = users.find(u => u.userName === userName);
+    if (user && user.ws && user.ws.readyState === WebSocket.OPEN) {
+        user.ws.send(JSON.stringify(msg));
     }
 }
 
-wss.on('connection', function connection(ws, req) {
-    let currentUser = null;
+function broadcast(msg, exceptUser = null) {
+    users.forEach(u => {
+        if (u.ws && u.ws.readyState === WebSocket.OPEN && u.userName !== exceptUser) {
+            u.ws.send(JSON.stringify(msg));
+        }
+    });
+}
 
-    ws.on('message', function incoming(message) {
+wss.on("connection", function connection(ws) {
+    ws.on("message", function incoming(message) {
         let msg;
         try {
             msg = JSON.parse(message);
@@ -38,50 +27,65 @@ wss.on('connection', function connection(ws, req) {
             return;
         }
 
-        // Kullanıcı girişini işle
+        // Kullanıcı giriş
         if (msg.Type === "user_join") {
-            let userInfo = {};
+            let userInfo;
             try {
                 userInfo = JSON.parse(msg.Content);
-            } catch {}
-            currentUser = {
-                ws,
-                userName: userInfo.UserName || msg.Sender,
-                ipAddress: userInfo.IpAddress || "",
+            } catch {
+                userInfo = {};
+            }
+            users = users.filter(u => u.userName !== msg.Sender);
+            users.push({
+                userName: msg.Sender,
+                ws: ws,
+                ip: userInfo.IpAddress || "",
                 port: userInfo.Port || 0,
                 localIp: userInfo.LocalIp || ""
-            };
-            clients.push(currentUser);
-            broadcastUserList();
+            });
+            // Kullanıcı listesi güncelle
+            broadcast({
+                Type: "user_list",
+                Content: JSON.stringify(users.map(u => ({
+                    UserName: u.userName,
+                    IpAddress: u.ip,
+                    Port: u.port,
+                    LocalIp: u.localIp
+                })))
+            });
             return;
         }
 
-        // Kullanıcı çıkışı
+        // Kullanıcı çıkış
         if (msg.Type === "user_leave") {
-            clients = clients.filter(c => c.ws !== ws);
-            broadcastUserList();
+            users = users.filter(u => u.userName !== msg.Sender);
+            broadcast({
+                Type: "user_list",
+                Content: JSON.stringify(users.map(u => ({
+                    UserName: u.userName,
+                    IpAddress: u.ip,
+                    Port: u.port,
+                    LocalIp: u.localIp
+                })))
+            });
             return;
         }
 
-        // Komutlar (herkese)
+        // Komutlar
         if (msg.Type === "command") {
-            clients.forEach(c => c.ws.readyState === WebSocket.OPEN && c.ws.send(message));
+            broadcast(msg);
             return;
         }
 
-        // Genel sohbet (herkese)
+        // Genel sohbet
         if (msg.Type === "chat") {
-            clients.forEach(c => c.ws.readyState === WebSocket.OPEN && c.ws.send(message));
+            broadcast(msg);
             return;
         }
 
-        // Özel mesaj (private_chat)
+        // Özel mesaj
         if (msg.Type === "private_chat" && msg.Receiver) {
             sendToUser(msg.Receiver, msg);
-            // Gönderenin de ekranında görünsün
-            if (msg.Sender && msg.Sender !== msg.Receiver) {
-                sendToUser(msg.Sender, msg);
-            }
             return;
         }
 
@@ -107,12 +111,26 @@ wss.on('connection', function connection(ws, req) {
             if (msg.Type === "call_response" && msg.Sender) sendToUser(msg.Sender, msg);
             return;
         }
+
+        // Çağrı sonlandırma
+        if (msg.Type === "call_end") {
+            if (msg.Receiver) sendToUser(msg.Receiver, msg);
+            if (msg.Sender) sendToUser(msg.Sender, msg);
+            return;
+        }
     });
 
-    ws.on('close', function () {
-        clients = clients.filter(c => c.ws !== ws);
-        broadcastUserList();
+    ws.on("close", function () {
+        // Bağlantı kopunca kullanıcıyı sil
+        users = users.filter(u => u.ws !== ws);
+        broadcast({
+            Type: "user_list",
+            Content: JSON.stringify(users.map(u => ({
+                UserName: u.userName,
+                IpAddress: u.ip,
+                Port: u.port,
+                LocalIp: u.localIp
+            })))
+        });
     });
 });
-
-console.log(`WebSocket sunucusu ${PORT} portunda çalışıyor.`);
