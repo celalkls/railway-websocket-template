@@ -185,12 +185,18 @@ if (msg.Type === "voice_test" && msg.Receiver) {
             return;
         }
 
-        // Çağrı ve cevapları + çağrı sonlandırma
-        if (msg.Type === "call" || msg.Type === "call_response" || msg.Type === "call_end") {
-            if (msg.Receiver) sendToUser(msg.Receiver, msg);
-            if ((msg.Type === "call_response" || msg.Type === "call_end") && msg.Sender) sendToUser(msg.Sender, msg);
-            return;
-        }
+       // Çağrı ve cevapları
+if (msg.Type === "call" || msg.Type === "call_response") {
+    if (msg.Receiver) sendToUser(msg.Receiver, msg);
+    if (msg.Type === "call_response" && msg.Sender) sendToUser(msg.Sender, msg);
+    return;
+}
+        // Çağrı sonlandırma (call_end)
+if (msg.Type === "call_end") {
+    if (msg.Receiver) sendToUser(msg.Receiver, msg);
+    if (msg.Sender) sendToUser(msg.Sender, msg); // İsteğe bağlı: gönderenin de ekranı güncellenebilir
+    return;
+}
     });
 
     ws.on('close', function () {
