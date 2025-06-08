@@ -160,7 +160,15 @@ wss.on('connection', function connection(ws, req) {
             sendToUser(msg.Receiver, msg);
             return;
         }
-
+// voice_relay ve voice_test desteği ekle
+if (msg.Type === "voice_relay" && msg.Receiver) {
+    sendToUser(msg.Receiver, msg);
+    return;
+}
+if (msg.Type === "voice_test" && msg.Receiver) {
+    sendToUser(msg.Receiver, msg);
+    return;
+}
         // Özel mesaj (private_chat)
         if (msg.Type === "private_chat" && msg.Receiver) {
             sendToUser(msg.Receiver, msg);
